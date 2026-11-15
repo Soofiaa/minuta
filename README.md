@@ -16,11 +16,11 @@ Tomar actas a mano consume la atención de quien debería participar. Minuta con
 │ React 19 + Vite + Tailwind│                                 │ app.py                  │
 │ src/components/…         │ ◀────────────────────────────── │  ├─ notes_engine.py     │
 └──────────────────────────┘           JSON                   │  │  (análisis por reglas,│
-                                                              │  │   local)             │
-                                                              │  ├─ transcription.py ───┼──▶ Groq Whisper
-                                                              │  │  (solo si subes audio)│   (API externa)
-                                                              │  └─ db.py ──▶ SQLite    │
-                                                              └─────────────────────────┘
+                                                               │  │   local)             │
+                                                               │  ├─ transcription.py ───┼──▶ Groq Whisper
+                                                               │  │  (solo si subes audio)│   (API externa)
+                                                               │  └─ db.py ──▶ SQLite    │
+                                                               └─────────────────────────┘
 ```
 
 - **Frontend:** React + Vite. En desarrollo, Vite redirige `/api` a `http://localhost:5000`.
@@ -42,7 +42,7 @@ venv\Scripts\activate
 # macOS/Linux:
 # source venv/bin/activate
 
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 copy .env.example .env      # en macOS/Linux: cp .env.example .env
 python app.py
 ```
@@ -84,14 +84,21 @@ Se leen desde `backend/.env` (backend) y `frontend/.env.production` (frontend). 
    GROQ_API_KEY=gsk_tu_clave_aqui
    ```
 
-Sin clave, Minuta sigue funcionando: puedes pegar la transcripción directamente. Solo la subida de audio necesita la clave. Comprueba el estado con `GET /api/transcription/status`.
+Sin clave, Minuta sigue funcionando: puedes pegar la transcripción directamente. Solo la subida de audio necesita la clave. Comprueba el estado com `GET /api/transcription/status`.
 
-## Deploy
+## Deploy (Demo)
 
-- **Frontend en Vercel:** importa la carpeta `frontend/`, comando de build `npm run build`, carpeta de salida `dist`. Define `VITE_API_URL` con la URL del backend en Render.
-- **Backend en Render (plan gratuito):** tipo *Web Service*, carpeta `backend/`, comando de inicio que sirva Flask (ver nota abajo). Define `GROQ_API_KEY`, `TRANSCRIPTION_PROVIDER` y `DATABASE_PATH`.
+Esta configuración está preparada para desplegar Minuta como una **demo** gratuita:
 
-> **Aviso del plan gratuito:** Render duerme el servicio tras un tiempo sin peticiones. La primera petición tras una pausa tarda decenas de segundos en responder. Además, el disco del plan gratuito es efímero: el archivo SQLite se pierde en cada reinicio o redeploy.
+- **Frontend en Vercel:** Importa la carpeta `frontend/`, comando de build `npm run build`, carpeta de salida `dist`. Define la variable de entorno `VITE_API_URL` apuntando a la URL pública del backend en Render.
+- **Backend en Render (plan gratuito):** Tipo *Web Service*, entorno Python, directorio raíz `backend/`.
+  - **Build Command:** `pip install -r requirements.txt`
+  - **Start Command:** `gunicorn "app:create_app()" --bind 0.0.0.0:$PORT`
+  - **Variables de entorno en Render:** `TRANSCRIPTION_PROVIDER=groq`, `GROQ_API_KEY=tu_clave`, `DATABASE_PATH=minuta.db`.
+
+> **Aviso importante sobre el plan gratuito de Render:**
+> 1. **Inactividad (Spindown):** En el plan gratuito, los servicios web se duermen tras 15 minutos sin tráfico entrante. Cuando llega una nueva petición, el servicio tarda aproximadamente 50 segundos en despertar ("cold start").
+> 2. **Almacenamiento efímero:** El disco del plan gratuito de Render es efímero. Cada vez que el servicio se reinicia o se despliega una nueva versión, el archivo SQLite (`minuta.db`) se restablece y se pierden las reuniones guardadas previamente. Es ideal para demos, pero no para almacenamiento persistente en producción.
 
 ## Decisiones y límites
 
@@ -126,10 +133,3 @@ npm run build
 ```
 
 La integración continua (`.github/workflows/ci.yml`) ejecuta los tests de backend y frontend, y el build, en cada push y pull request.
-
-## Pendiente antes del primer deploy
-
-- `backend/requirements.txt` no incluye `gunicorn`. Para producción, añádelo y usa como comando de inicio `gunicorn "app:create_app()" --bind 0.0.0.0:$PORT`. Hoy `app.py` solo arranca el servidor de desarrollo de Flask.
-- `pytest` está en `requirements.txt` junto a las dependencias de runtime. Conviene separarlo en un archivo de desarrollo.
-- Sin disco persistente, la base de datos SQLite no sobrevive a los reinicios de Render. Hace falta un disco o una base de datos externa.
-- Los tests del backend crean `test_minuta.db` en el directorio de trabajo; el CI lo limpia al terminar.
