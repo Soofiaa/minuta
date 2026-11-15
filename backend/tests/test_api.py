@@ -8,6 +8,8 @@ from app import create_app
 def app():
     # Usar una base de datos temporal
     os.environ["DATABASE_PATH"] = "test_minuta.db"
+    # Asegurar que no se use Postgres en tests
+    os.environ["DATABASE_URL"] = ""
     app = create_app()
     app.config.update({
         "TESTING": True,
