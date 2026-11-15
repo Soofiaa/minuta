@@ -1,0 +1,41 @@
+{
+  "name": "minuta-desktop",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"electron .\"",
+    "build": "vite build",
+    "pack": "vite build && electron-builder --dir",
+    "dist": "vite build && electron-builder"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^8.2.2",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.6"
+  },
+  "build": {
+    "appId": "com.minuta.desktop",
+    "productName": "Minuta Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis"]
+    }
+  }
+}
