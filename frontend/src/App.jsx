@@ -91,6 +91,8 @@ export default function App() {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col">
+        <h1 className="pt-6 text-center text-3xl font-bold text-purple-900">Minuta</h1>
+
         {/* Banner de consentimiento */}
         <div className="bg-purple-100 border-b-2 border-purple-200 p-4 text-center">
           <p className="text-sm font-medium text-purple-900">

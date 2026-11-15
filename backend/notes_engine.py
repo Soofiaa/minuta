@@ -31,7 +31,7 @@ STOPWORDS = {
     "todos", "cada", "otro", "otra", "otros", "otras", "puede", "pueden",
     "debería", "hacer", "hacia", "hasta", "sobre", "entre", "sin",
     "vez", "veces", "día", "días", "hoy", "ayer", "mañana", "reunión",
-    "hola", "gracias", "buenos", "días", "tardes", "noches", "parece",
+    "hola", "gracias", "buenos", "tardes", "noches", "parece",
     "nuevo", "decidimos",
 }
 

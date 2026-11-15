@@ -75,6 +75,17 @@ def test_meetings_crud(client):
     response = client.get(f"/api/meetings/{meeting_id}")
     assert response.status_code == 404
 
+def test_transcription_status(client, monkeypatch):
+    monkeypatch.setenv("TRANSCRIPTION_PROVIDER", "groq")
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    response = client.get("/api/transcription/status")
+    assert response.status_code == 200
+    body = response.json
+    assert set(body) == {"provider", "configured", "message"}
+    assert body["provider"] == "groq"
+    assert body["configured"] is False
+    assert "GROQ_API_KEY" in body["message"]
+
 def test_transcribe_no_file(client):
     response = client.post("/api/transcribe")
     assert response.status_code == 400
