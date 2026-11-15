@@ -88,17 +88,26 @@ Sin clave, Minuta sigue funcionando: puedes pegar la transcripción directamente
 
 ## Deploy (Demo)
 
-Esta configuración está preparada para desplegar Minuta como una **demo** gratuita:
+Esta configuración está preparada para desplegar Minuta utilizando **Render Blueprints** (backend) y **Vercel** (frontend).
 
-- **Frontend en Vercel:** Importa la carpeta `frontend/`, comando de build `npm run build`, carpeta de salida `dist`. Define la variable de entorno `VITE_API_URL` apuntando a la URL pública del backend en Render.
-- **Backend en Render (plan gratuito):** Tipo *Web Service*, entorno Python, directorio raíz `backend/`.
-  - **Build Command:** `pip install -r requirements.txt`
-  - **Start Command:** `gunicorn "app:create_app()" --bind 0.0.0.0:$PORT`
-  - **Variables de entorno en Render:** `TRANSCRIPTION_PROVIDER=groq`, `GROQ_API_KEY=tu_clave`, `DATABASE_PATH=minuta.db`.
+### 1. Backend en Render (Plan Gratuito)
+1. En el panel de Render, selecciona **New** -> **Blueprint**.
+2. Conecta tu repositorio `Soofiaa/minuta`.
+3. Render detectará el archivo `render.yaml` automáticamente.
+4. Completa las variables de entorno que el panel te solicitará:
+   - `GROQ_API_KEY`: Tu clave de Groq.
+   - `DATABASE_URL`: La cadena de conexión a tu base de datos en Supabase.
+5. Haz clic en **Deploy**.
 
-> **Aviso importante sobre el plan gratuito de Render:**
-> 1. **Inactividad (Spindown):** En el plan gratuito, los servicios web se duermen tras 15 minutos sin tráfico entrante. Cuando llega una nueva petición, el servicio tarda aproximadamente 50 segundos en despertar ("cold start").
-> 2. **Almacenamiento efímero:** El disco del plan gratuito de Render es efímero. Cada vez que el servicio se reinicia o se despliega una nueva versión, el archivo SQLite (`minuta.db`) se restablece y se pierden las reuniones guardadas previamente. Es ideal para demos, pero no para almacenamiento persistente en producción.
+### 2. Frontend en Vercel
+1. En Vercel, importa el proyecto y selecciona la carpeta `frontend/`.
+2. **Framework Preset:** `Vite`.
+3. **Build Command:** `npm run build`.
+4. **Output Directory:** `dist`.
+5. **Variables de entorno:**
+   - `VITE_API_URL`: La URL pública de tu servicio backend en Render (ej. `https://minuta-backend.onrender.com`, sin barra final). **Importante:** Configura esto antes del primer deploy, ya que Vite lo incrusta durante el build.
+
+> **Aviso:** En el plan gratuito de Render, los servicios se duermen tras 15 minutos de inactividad. La primera petición tardará unos 50 segundos en responder ("cold start").
 
 ## Decisiones y límites
 
