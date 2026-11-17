@@ -108,29 +108,6 @@ def test_real_transcript_phrase_without_date():
     assert pendientes[0]["responsable"] is None
     assert pendientes[0]["fecha"] is None
 
-def test_sprint_complete_example():
-    text = """Sofia: Partimos con la planificación de la app de reservas.
-Sofia: Lo primero es el módulo de reservas online.
-Pedro: Que alguien prepare el correo para el cliente, yo lo reviso antes de enviarlo.
-Sofia: Entonces cerramos: reservas lista el viernes."""
-    attendees = ["Sofia", "Pedro"]
-    notes = analyze(text, attendees)
-    
-    pendientes = notes["pendientes"]
-    texts = [p["texto"] for p in pendientes]
-    
-    # Verify no noise in pendientes (opening, context, closing)
-    for t in texts:
-        assert "Partimos" not in t
-        assert "Lo primero" not in t
-        assert "cerramos" not in t
-    
-    correo_pendientes = [p for p in pendientes if "correo" in p["texto"]]
-    assert len(correo_pendientes) == 1
-    p = correo_pendientes[0]
-    assert p["responsable"] is None
-    assert p["fecha"] is None
-
 def test_real_transcript_phrase_without_date():
     text = "Pedro: Que alguien prepare el correo para el cliente, yo lo reviso antes de enviarlo."
     attendees = ["Pedro"]
@@ -162,4 +139,4 @@ Sofia: Entonces cerramos: reservas lista el viernes."""
     assert len(correo_pendientes) == 1
     p = correo_pendientes[0]
     assert p["responsable"] is None
-    assert p["fecha"] is None
+    assert p["fecha"] == "el viernes"

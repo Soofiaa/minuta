@@ -294,15 +294,37 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
                     # Si es la parte de "reviso", ignorar
                     if "reviso" in key and "prepare" not in key and len(parts) > 1:
                         continue
-                    
+
+                    # Buscar fecha en el contexto si no está en la frase
+                    fecha = _find_fecha(part) or _find_fecha(sentence)
+                    if not fecha:
+                        # Buscar fecha en las siguientes frases si se refiere al mismo tema
+                        for next_sentence in sentences[sentences.index(sentence)+1:]:
+                            # Si detectamos una fecha futura o específica, usarla
+                            if _find_fecha(next_sentence):
+                                fecha = _find_fecha(next_sentence)
+                                break
+
                     pendientes.append(
                         {
                             "texto": part,
                             "responsable": _find_responsable(part, speaker, attendees),
-                            "fecha": _find_fecha(part) or _find_fecha(sentence), # Intentar encontrar fecha en parte o en frase completa
+                            "fecha": fecha,
                             "hecho": False,
                         }
                     )
+
+    # Heredar fecha si comparten una palabra de contenido clave y otra frase sí tiene fecha (cierre)
+    for p in pendientes:
+        if not p.get("fecha"):
+            p_words = set(_content_words(p["texto"]))
+            for s, _ in flat:
+                s_fecha = _find_fecha(s)
+                if s_fecha:
+                    s_words = set(_content_words(s))
+                    if p_words & s_words:
+                        p["fecha"] = s_fecha
+                        break
 
     return {
         "resumen": _resumen(sentences),
