@@ -278,18 +278,30 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
         if is_action:
             if _match_any(sentence, [r"\b(Partimos|Lo primero|cerramos)\b"]):
                 continue
-            
-            key = sentence.lower()
-            if key not in seen_actions:
-                seen_actions.add(key)
-                pendientes.append(
-                    {
-                        "texto": sentence,
-                        "responsable": _find_responsable(sentence, speaker, attendees),
-                        "fecha": _find_fecha(sentence),
-                        "hecho": False,
-                    }
-                )
+
+            # Manejar delegación + revisión en la misma frase: dividir por coma
+            parts = [sentence]
+            if "," in sentence:
+                parts = [p.strip() for p in sentence.split(",")]
+
+            for part in parts:
+                if len(part) < 5: continue
+                # Solo añadir si parece una acción o si es el primer fragmento (la delegación)
+                key = part.lower()
+                if key not in seen_actions:
+                    seen_actions.add(key)
+                    # Si es la parte de "reviso", ignorar
+                    if "reviso" in key and "prepare" not in key and len(parts) > 1:
+                        continue
+                    
+                    pendientes.append(
+                        {
+                            "texto": part,
+                            "responsable": _find_responsable(part, speaker, attendees),
+                            "fecha": _find_fecha(part) or _find_fecha(sentence), # Intentar encontrar fecha en parte o en frase completa
+                            "hecho": False,
+                        }
+                    )
 
     return {
         "resumen": _resumen(sentences),

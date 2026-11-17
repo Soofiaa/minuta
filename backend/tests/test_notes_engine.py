@@ -97,3 +97,33 @@ def test_to_markdown():
     assert "**Participantes:** Sofia, Pedro" in md
     assert "## Decisiones" in md
     assert "- Decisión A — Sofia" in md
+
+def test_delegation_vs_revision():
+    text = "Pedro: Que alguien prepare el correo para el cliente antes del jueves, yo lo reviso antes de enviarlo."
+    attendees = ["Pedro"]
+    notes = analyze(text, attendees)
+    
+    # Check that we get 1 pending for the preparation task
+    pendientes = [p for p in notes["pendientes"] if "prepare el correo" in p["texto"]]
+    assert len(pendientes) == 1
+    assert pendientes[0]["responsable"] is None
+    assert pendientes[0]["fecha"] == "antes del jueves"
+    
+    # Check that "yo lo reviso" does NOT create a separate pending task assigned to Pedro
+    revisar_pendientes = [p for p in notes["pendientes"] if "reviso" in p["texto"]]
+    assert len(revisar_pendientes) == 0
+
+def test_delegation_vs_revision():
+    text = "Pedro: Que alguien prepare el correo para el cliente antes del jueves, yo lo reviso antes de enviarlo."
+    attendees = ["Pedro"]
+    notes = analyze(text, attendees)
+    
+    # Check that we get 1 pending for the preparation task
+    pendientes = [p for p in notes["pendientes"] if "prepare el correo" in p["texto"]]
+    assert len(pendientes) == 1
+    assert pendientes[0]["responsable"] is None
+    assert pendientes[0]["fecha"] == "antes del jueves"
+    
+    # Check that "yo lo reviso" does NOT create a separate pending task assigned to Pedro
+    revisar_pendientes = [p for p in notes["pendientes"] if "reviso" in p["texto"]]
+    assert len(revisar_pendientes) == 0
