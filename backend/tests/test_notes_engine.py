@@ -140,3 +140,22 @@ Sofia: Entonces cerramos: reservas lista el viernes."""
     p = correo_pendientes[0]
     assert p["responsable"] is None
     assert p["fecha"] == "el viernes"
+
+def test_fecha_en_cierre_complejo():
+    text = "Pedro: Entonces cerramos: fotos listas el lunes, precios el martes, comunicado antes del viernes y pago probado el jueves."
+    attendees = ["Pedro"]
+    notes = analyze(text, attendees)
+    
+    # Pendientes:
+    # 1. fotos listas el lunes
+    # 2. precios el martes
+    # 3. comunicado antes del viernes
+    # 4. pago probado el jueves
+    
+    pendientes = notes["pendientes"]
+    # Debería haber 4 pendientes
+    assert len(pendientes) == 4
+    
+    # Buscar el del comunicado
+    comunicado = next(p for p in pendientes if "comunicado" in p["texto"])
+    assert comunicado["fecha"] == "antes del viernes"

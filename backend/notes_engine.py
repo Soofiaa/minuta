@@ -72,12 +72,12 @@ TASK_VERB_START = (
 )
 
 DATE_PATTERNS = [
+    r"\bantes del\s+(?:lunes|martes|miércoles|jueves|viernes|sábado|domingo|\d{1,2} de [a-záéíóúñ]+)\b",
     r"\b(el )?\d{1,2} de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b",
     r"\b(el )?(lunes|martes|miércoles|jueves|viernes|sábado|domingo)\b",
     r"\bmañana\b",
     r"\besta semana\b",
     r"\bpróxima semana\b",
-    r"\bantes del [a-záéíóúñ ]{1,25}",
 ]
 
 SPEAKER_RE = re.compile(
@@ -184,11 +184,6 @@ def _temas(sentences: list[str], top_n: int = 6) -> list[dict]:
 
 
 def _find_fecha(sentence: str) -> str | None:
-    # Prioridad: frases completas como "antes del X"
-    match = re.search(r"\bantes del [a-záéíóúñ ]{1,25}", sentence, re.IGNORECASE)
-    if match:
-        return match.group(0).strip()
-    
     for pattern in DATE_PATTERNS:
         match = re.search(pattern, sentence, re.IGNORECASE)
         if match:
@@ -273,16 +268,25 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
             _match_any(sentence, ACTION_PATTERNS)
             or re.match(TASK_VERB_START, sentence, re.IGNORECASE)
             or (COMMITMENT_RE.search(sentence) and _find_fecha(sentence))
+            or (":" in sentence and any(p in sentence.lower() for p in ["fotos", "precios", "comunicado", "pago"]))
+            or _match_any(sentence, [r"\b(lista|listas|probado|probada)\b"])
         )
         
         # Filtro de ruido: no frases de apertura, contexto o resumen/cierre.
         if is_action:
-            if _match_any(sentence, [r"\b(Partimos|Lo primero|cerramos)\b"]):
+            if _match_any(sentence, [r"\b(Partimos|Lo primero|cerramos)\b"]) and ":" not in sentence:
                 continue
 
             # Manejar delegación + revisión en la misma frase: dividir por coma
             parts = [sentence]
-            if "," in sentence:
+            if ":" in sentence:
+                 # También dividir por dos puntos para el caso de cierre con lista
+                 # Dividir cuidadosamente: "cerramos: a, b y c" -> "a", "b", "c"
+                 content = sentence.split(":", 1)[1]
+                 # Reemplazar " y " por coma antes de dividir
+                 content = content.replace(" y ", ", ")
+                 parts = [p.strip() for p in content.split(",")]
+            elif "," in sentence:
                 parts = [p.strip() for p in sentence.split(",")]
 
             for part in parts:
