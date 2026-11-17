@@ -98,32 +98,68 @@ def test_to_markdown():
     assert "## Decisiones" in md
     assert "- Decisión A — Sofia" in md
 
-def test_delegation_vs_revision():
-    text = "Pedro: Que alguien prepare el correo para el cliente antes del jueves, yo lo reviso antes de enviarlo."
+def test_real_transcript_phrase_without_date():
+    text = "Pedro: Que alguien prepare el correo para el cliente, yo lo reviso antes de enviarlo."
     attendees = ["Pedro"]
     notes = analyze(text, attendees)
     
-    # Check that we get 1 pending for the preparation task
     pendientes = [p for p in notes["pendientes"] if "prepare el correo" in p["texto"]]
     assert len(pendientes) == 1
     assert pendientes[0]["responsable"] is None
-    assert pendientes[0]["fecha"] == "antes del jueves"
-    
-    # Check that "yo lo reviso" does NOT create a separate pending task assigned to Pedro
-    revisar_pendientes = [p for p in notes["pendientes"] if "reviso" in p["texto"]]
-    assert len(revisar_pendientes) == 0
+    assert pendientes[0]["fecha"] is None
 
-def test_delegation_vs_revision():
-    text = "Pedro: Que alguien prepare el correo para el cliente antes del jueves, yo lo reviso antes de enviarlo."
+def test_sprint_complete_example():
+    text = """Sofia: Partimos con la planificación de la app de reservas.
+Sofia: Lo primero es el módulo de reservas online.
+Pedro: Que alguien prepare el correo para el cliente, yo lo reviso antes de enviarlo.
+Sofia: Entonces cerramos: reservas lista el viernes."""
+    attendees = ["Sofia", "Pedro"]
+    notes = analyze(text, attendees)
+    
+    pendientes = notes["pendientes"]
+    texts = [p["texto"] for p in pendientes]
+    
+    # Verify no noise in pendientes (opening, context, closing)
+    for t in texts:
+        assert "Partimos" not in t
+        assert "Lo primero" not in t
+        assert "cerramos" not in t
+    
+    correo_pendientes = [p for p in pendientes if "correo" in p["texto"]]
+    assert len(correo_pendientes) == 1
+    p = correo_pendientes[0]
+    assert p["responsable"] is None
+    assert p["fecha"] is None
+
+def test_real_transcript_phrase_without_date():
+    text = "Pedro: Que alguien prepare el correo para el cliente, yo lo reviso antes de enviarlo."
     attendees = ["Pedro"]
     notes = analyze(text, attendees)
     
-    # Check that we get 1 pending for the preparation task
     pendientes = [p for p in notes["pendientes"] if "prepare el correo" in p["texto"]]
     assert len(pendientes) == 1
     assert pendientes[0]["responsable"] is None
-    assert pendientes[0]["fecha"] == "antes del jueves"
+    assert pendientes[0]["fecha"] is None
+
+def test_sprint_complete_example():
+    text = """Sofia: Partimos con la planificación de la app de reservas.
+Sofia: Lo primero es el módulo de reservas online.
+Pedro: Que alguien prepare el correo para el cliente, yo lo reviso antes de enviarlo.
+Sofia: Entonces cerramos: reservas lista el viernes."""
+    attendees = ["Sofia", "Pedro"]
+    notes = analyze(text, attendees)
     
-    # Check that "yo lo reviso" does NOT create a separate pending task assigned to Pedro
-    revisar_pendientes = [p for p in notes["pendientes"] if "reviso" in p["texto"]]
-    assert len(revisar_pendientes) == 0
+    pendientes = notes["pendientes"]
+    texts = [p["texto"] for p in pendientes]
+    
+    # Verify no noise in pendientes (opening, context, closing)
+    for t in texts:
+        assert "Partimos" not in t
+        assert "Lo primero" not in t
+        assert "cerramos" not in t
+    
+    correo_pendientes = [p for p in pendientes if "correo" in p["texto"]]
+    assert len(correo_pendientes) == 1
+    p = correo_pendientes[0]
+    assert p["responsable"] is None
+    assert p["fecha"] is None

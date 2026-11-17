@@ -53,6 +53,7 @@ ACTION_PATTERNS = [
     r"\b(antes del|para mañana|esta semana|próxima semana)\b",
     r"\bpara (el|la) (lunes|martes|miércoles|jueves|viernes|sábado|domingo|\d{1,2})\b",
     r"\bnecesit(o|amos|as|a|an) que\b",
+    r"\bque\s+alguien\s+(?:(?:me|te|le|nos|les|lo|la|los|las|se|no)\s+)*[a-záéíóúñü]+(?:a|e|á|é|an|en)\b",
 ]
 
 # "yo + verbo de acción". Los verbos de opinión o estado no son compromisos.
