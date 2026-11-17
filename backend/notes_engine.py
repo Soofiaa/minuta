@@ -33,6 +33,8 @@ STOPWORDS = {
     "vez", "veces", "día", "días", "hoy", "ayer", "mañana", "reunión",
     "hola", "gracias", "buenos", "tardes", "noches", "parece",
     "nuevo", "decidimos",
+    "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo",
+    "reviso", "preparo", "cerramos", "partimos", "preparar",
 }
 
 DECISION_PATTERNS = [
@@ -181,6 +183,11 @@ def _temas(sentences: list[str], top_n: int = 6) -> list[dict]:
 
 
 def _find_fecha(sentence: str) -> str | None:
+    # Prioridad: frases completas como "antes del X"
+    match = re.search(r"\bantes del [a-záéíóúñ ]{1,25}", sentence, re.IGNORECASE)
+    if match:
+        return match.group(0).strip()
+    
     for pattern in DATE_PATTERNS:
         match = re.search(pattern, sentence, re.IGNORECASE)
         if match:
@@ -201,7 +208,9 @@ def _find_responsable(sentence: str, speaker: str | None, attendees: list[str]) 
         if first and re.search(r"\b" + re.escape(first.lower()) + r"\b", lowered):
             return person
     # Solo el propio hablante se asigna: "yo + verbo" o "me encargo/me toca".
-    if speaker and (COMMITMENT_RE.search(sentence) or re.search(r"\bme (encargo|toca)\b", lowered)):
+    # Pero ignorar si la frase contiene "preparar" explícitamente, ya que suele ser delegación.
+    # Además, ignorar si la frase es una delegación general ("que alguien...").
+    if speaker and "preparar" not in sentence.lower() and "que alguien" not in sentence.lower() and (COMMITMENT_RE.search(sentence) or re.search(r"\bme (encargo|toca)\b", lowered)):
         return speaker
     return None
 
@@ -264,7 +273,12 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
             or re.match(TASK_VERB_START, sentence, re.IGNORECASE)
             or (COMMITMENT_RE.search(sentence) and _find_fecha(sentence))
         )
+        
+        # Filtro de ruido: no frases de apertura, contexto o resumen/cierre.
         if is_action:
+            if _match_any(sentence, [r"\b(Partimos|Lo primero|cerramos)\b"]):
+                continue
+            
             key = sentence.lower()
             if key not in seen_actions:
                 seen_actions.add(key)

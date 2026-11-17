@@ -29,7 +29,7 @@ Sofia: ¿Alguien tiene dudas?
     
     assert len(notes["pendientes"]) == 1
     assert notes["pendientes"][0]["responsable"] == "Pedro"
-    assert notes["pendientes"][0]["fecha"] == "viernes"
+    assert notes["pendientes"][0]["fecha"] == "antes del viernes"
     
     assert len(notes["preguntas"]) == 1
     assert "dudas" in notes["preguntas"][0]
