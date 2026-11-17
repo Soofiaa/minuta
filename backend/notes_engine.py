@@ -298,11 +298,12 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
                     # Buscar fecha en el contexto si no está en la frase
                     fecha = _find_fecha(part) or _find_fecha(sentence)
                     if not fecha:
-                        # Buscar fecha en las siguientes frases si se refiere al mismo tema
+                        # Buscar fecha en las siguientes frases
+                        # Si detectamos una frase de cierre con fecha, la tomamos como fecha límite general
                         for next_sentence in sentences[sentences.index(sentence)+1:]:
-                            # Si detectamos una fecha futura o específica, usarla
-                            if _find_fecha(next_sentence):
-                                fecha = _find_fecha(next_sentence)
+                            next_fecha = _find_fecha(next_sentence)
+                            if next_fecha and _match_any(next_sentence, [r"\b(cerramos|cerrar|lista|listo|final|concluir)\b"]):
+                                fecha = next_fecha
                                 break
 
                     pendientes.append(
