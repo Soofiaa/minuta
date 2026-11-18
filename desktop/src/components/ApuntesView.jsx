@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { analyzeTranscript, transcribeAudio, createMeeting } from '../lib/api';
 import { generateMarkdown } from '../lib/markdown';
 
@@ -8,8 +8,8 @@ const removeBtn = 'text-red-500 hover:text-red-700 px-2 py-1 text-lg font-bold';
 
 // Pantalla de apuntes: pegar transcripción o subir audio, editar y guardar.
 // Misma lógica que frontend/src/App.jsx + TranscriptForm + NotesView.
-export default function ApuntesView() {
-  const [title, setTitle] = useState('');
+export default function ApuntesView({ recording = null, onClear = null }) {
+  const [title, setTitle] = useState(recording?.title || '');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendeesStr, setAttendeesStr] = useState('');
   const [transcript, setTranscript] = useState('');
@@ -18,7 +18,32 @@ export default function ApuntesView() {
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
 
-  const attendees = () => attendeesStr.split(',').map(s => s.trim()).filter(Boolean);
+  // Si llega una grabación, procesarla automáticamente
+  useEffect(() => {
+    if (recording) {
+      setTitle(recording.title || recording.windowName || 'Grabación');
+      setDate(recording.createdAt ? recording.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
+      
+      const processRecording = async () => {
+        setBusy(true);
+        setError(null);
+        try {
+          const audioBuffer = await window.electronAPI.getRecordingFile(recording.videoPath);
+          const file = new File([audioBuffer], 'recording.webm', { type: 'video/webm' });
+          const transcriptData = await transcribeAudio(file);
+          setTranscript(transcriptData.transcript);
+          
+          const result = await analyzeTranscript(transcriptData.transcript, [], date);
+          setNotes(result);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setBusy(false);
+        }
+      };
+      processRecording();
+    }
+  }, [recording]);
 
   const handleAudio = async (e) => {
     const file = e.target.files[0];
@@ -75,7 +100,7 @@ export default function ApuntesView() {
     }
   };
 
-  const handleExport = () => {
+  const handleExportMarkdown = () => {
     const blob = new Blob([generateMarkdown(title, date, notes)], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -83,6 +108,10 @@ export default function ApuntesView() {
     a.download = `${title.replace(/\s+/g, '_')}_minuta.md`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    window.print();
   };
 
   const update = (section, value) => setNotes({ ...notes, [section]: value });
@@ -105,8 +134,11 @@ export default function ApuntesView() {
             <p className="text-sm text-gray-500">Fecha: {date || 'No especificada'}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={handleExport} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
+            <button onClick={handleExportMarkdown} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
               Descargar .md
+            </button>
+            <button onClick={handleExportPDF} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
+              Exportar PDF
             </button>
             <button onClick={handleSave} disabled={busy || saved} className="text-sm bg-purple-600 text-white px-4 py-1.5 rounded-md hover:bg-purple-700 font-medium disabled:opacity-50">
               {saved ? 'Guardada' : 'Guardar minuta'}

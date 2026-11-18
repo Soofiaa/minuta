@@ -50,6 +50,8 @@ function MainApp() {
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
 
+  const [activeRecording, setActiveRecording] = useState(null); // Para mostrar en el modo apuntes
+
   useEffect(() => {
     window.electronAPI.getSources().then(setSources);
     window.electronAPI.getRecordings().then(setRecordings);
@@ -112,17 +114,8 @@ function MainApp() {
   };
 
   const generateNotes = async (recording) => {
-    try {
-      const audioBuffer = await window.electronAPI.getRecordingFile(recording.videoPath);
-      const file = new File([audioBuffer], 'recording.webm', { type: 'video/webm' });
-      
-      const transcriptData = await transcribeAudio(file);
-      const notes = await analyzeTranscript(transcriptData.transcript);
-      
-      alert(JSON.stringify(notes, null, 2));
-    } catch (err) {
-      alert(`Error: ${err.message}. No se pudo conectar con el backend de Render.`);
-    }
+    setActiveRecording(recording);
+    setMode('apuntes'); // Cambiar al modo apuntes
   };
 
   return (
@@ -180,7 +173,7 @@ function MainApp() {
       </div>
 
       <div hidden={mode !== 'apuntes'}>
-        <ApuntesView />
+        <ApuntesView recording={activeRecording} onClear={() => setActiveRecording(null)} />
       </div>
     </div>
   );
