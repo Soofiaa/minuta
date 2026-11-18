@@ -22,12 +22,12 @@ function FloatingWindow() {
   const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
   return (
-    <div className={`p-3 rounded-lg flex items-center justify-between font-bold shadow-xl border ${status === 'recording' ? 'bg-red-600 text-white border-red-800' : 'bg-amber-500 text-white border-amber-700'}`}>
+    <div className={`p-3 rounded-lg flex items-center justify-between font-bold shadow-xl border [-webkit-app-region:drag] ${status === 'recording' ? 'bg-red-600 text-white border-red-800' : 'bg-amber-500 text-white border-amber-700'}`}>
       <div className="flex items-center">
         <span className="animate-pulse mr-2">{status === 'recording' ? '●' : '⏸'}</span>
         {status === 'recording' ? 'GRABANDO' : 'PAUSA'} {timeStr}
       </div>
-      <div className="flex gap-1">
+      <div className="flex gap-1 [-webkit-app-region:no-drag]">
         <button onClick={() => window.electronAPI.sendControlAction(status === 'recording' ? 'pause' : 'resume')} className="bg-black/20 hover:bg-black/40 px-2 py-1 rounded text-xs">
           {status === 'recording' ? 'Pausar' : 'Reanudar'}
         </button>
@@ -197,6 +197,9 @@ function MainApp() {
 }
 
 export default function App({ route }) {
-  if (route === '#/floating') return <FloatingWindow />;
+  const currentRoute = route || window.location.hash;
+  if (currentRoute === '#/floating' || currentRoute === '#floating') {
+    return <FloatingWindow />;
+  }
   return <MainApp />;
 }
