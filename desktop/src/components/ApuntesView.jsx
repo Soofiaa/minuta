@@ -15,6 +15,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
   const [transcript, setTranscript] = useState('');
   const [notes, setNotes] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [statusText, setStatusText] = useState('');
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
 
@@ -27,18 +28,39 @@ export default function ApuntesView({ recording = null, onClear = null }) {
       const processRecording = async () => {
         setBusy(true);
         setError(null);
+        setStatusText('Transcribiendo audio...');
+        const startTime = Date.now();
+        
         try {
           const audioBuffer = await window.electronAPI.getRecordingFile(recording.videoPath);
+          console.log(`Archivo: ${audioBuffer.byteLength} bytes`);
           const file = new File([audioBuffer], 'recording.webm', { type: 'video/webm' });
-          const transcriptData = await transcribeAudio(file);
+          
+          const transcriptPromise = transcribeAudio(file);
+          const transcriptData = await Promise.race([
+            transcriptPromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout en transcripción')), 120000))
+          ]);
+          console.log(`Transcripción tardó: ${Date.now() - startTime}ms`);
+          
           setTranscript(transcriptData.transcript);
           
-          const result = await analyzeTranscript(transcriptData.transcript, [], date);
+          setStatusText('Generando apuntes...');
+          const analyzeStartTime = Date.now();
+          const analyzePromise = analyzeTranscript(transcriptData.transcript, [], date);
+          
+          const result = await Promise.race([
+            analyzePromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout en análisis')), 120000))
+          ]);
+          console.log(`Análisis tardó: ${Date.now() - analyzeStartTime}ms`);
+          
           setNotes(result);
         } catch (err) {
           setError(err.message);
         } finally {
           setBusy(false);
+          setStatusText('');
         }
       };
       processRecording();
@@ -260,7 +282,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
       <div className="flex justify-end">
         <button type="submit" disabled={busy}
           className="rounded-md bg-purple-600 px-6 py-2 font-medium text-white shadow-sm hover:bg-purple-700 disabled:opacity-50">
-          {busy ? 'Generando…' : 'Generar apuntes'}
+          {busy ? (statusText || 'Generando…') : 'Generar apuntes'}
         </button>
       </div>
     </form>
