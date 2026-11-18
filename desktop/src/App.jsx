@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ApuntesView from './components/ApuntesView';
 
 function FloatingWindow() {
   const [time, setTime] = useState(0);
@@ -44,6 +45,7 @@ function MainApp() {
   const [consented, setConsented] = useState(false);
   const [recordings, setRecordings] = useState([]);
   const [status, setStatus] = useState('idle'); // 'idle', 'recording', 'paused'
+  const [mode, setMode] = useState('grabar'); // 'grabar' | 'apuntes'
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
 
@@ -135,8 +137,19 @@ function MainApp() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-purple-900 mb-6">Minuta Desktop</h1>
-      
+      <h1 className="text-3xl font-bold text-purple-900 mb-4">Minuta Desktop</h1>
+
+      <nav className="flex gap-1 border-b border-purple-200 mb-6" role="tablist">
+        {[['grabar', 'Grabar'], ['apuntes', 'Apuntes']].map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
+            className={`px-5 py-2 font-medium -mb-px border-b-2 ${mode === id ? 'border-purple-600 text-purple-900' : 'border-transparent text-gray-500 hover:text-purple-700'}`}>
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Grabar se oculta, no se desmonta: así la grabación en curso sigue viva al cambiar de pestaña. */}
+      <div hidden={mode !== 'grabar'}>
       <div className="bg-white p-6 rounded-xl shadow-md border border-purple-100 mb-6">
         <h2 className="text-xl font-semibold text-purple-800 mb-4">Nueva Grabación</h2>
         <select onChange={(e) => setSelectedSource(sources.find(s => s.id === e.target.value))} className="w-full p-2 border rounded mb-4">
@@ -173,6 +186,11 @@ function MainApp() {
             <button onClick={() => generateNotes(r)} className="text-purple-600 font-medium">Generar apuntes</button>
           </div>
         ))}
+      </div>
+      </div>
+
+      <div hidden={mode !== 'apuntes'}>
+        <ApuntesView />
       </div>
     </div>
   );
