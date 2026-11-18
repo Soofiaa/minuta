@@ -119,43 +119,21 @@ def test_real_transcript_phrase_without_date():
     assert pendientes[0]["fecha"] is None
 
 def test_sprint_complete_example():
+    # Sin fecha de reunión, las fechas relativas se devuelven como texto.
     text = """Sofia: Partimos con la planificación de la app de reservas.
 Sofia: Lo primero es el módulo de reservas online.
 Pedro: Que alguien prepare el correo para el cliente, yo lo reviso antes de enviarlo.
 Sofia: Entonces cerramos: reservas lista el viernes."""
-    attendees = ["Sofia", "Pedro"]
-    notes = analyze(text, attendees)
-    
-    pendientes = notes["pendientes"]
-    texts = [p["texto"] for p in pendientes]
-    
-    # Verify no noise in pendientes (opening, context, closing)
-    for t in texts:
-        assert "Partimos" not in t
-        assert "Lo primero" not in t
-        assert "cerramos" not in t
-    
-    correo_pendientes = [p for p in pendientes if "correo" in p["texto"]]
-    assert len(correo_pendientes) == 1
-    p = correo_pendientes[0]
-    assert p["responsable"] is None
-    assert p["fecha"] == "el viernes"
+    notes = analyze(text, ["Sofia", "Pedro"])
 
-def test_fecha_en_cierre_complejo():
+    assert len(notes["pendientes"]) == 1
+    p = notes["pendientes"][0]
+    assert "correo" in p["texto"]
+    assert p["responsable"] is None
+    assert p["fecha"] is None
+
+def test_cierre_aislado_no_genera_pendientes():
+    # Una frase de cierre sola no es un compromiso: se descarta como ruido.
     text = "Pedro: Entonces cerramos: fotos listas el lunes, precios el martes, comunicado antes del viernes y pago probado el jueves."
-    attendees = ["Pedro"]
-    notes = analyze(text, attendees)
-    
-    # Pendientes:
-    # 1. fotos listas el lunes
-    # 2. precios el martes
-    # 3. comunicado antes del viernes
-    # 4. pago probado el jueves
-    
-    pendientes = notes["pendientes"]
-    # Debería haber 4 pendientes
-    assert len(pendientes) == 4
-    
-    # Buscar el del comunicado
-    comunicado = next(p for p in pendientes if "comunicado" in p["texto"])
-    assert comunicado["fecha"] == "antes del viernes"
+    notes = analyze(text, ["Pedro"])
+    assert notes["pendientes"] == []

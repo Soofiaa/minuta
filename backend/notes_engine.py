@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from datetime import date, datetime, timedelta
 
 # ---------------------------------------------------------------------------
 # Listas y patrones
@@ -206,7 +207,7 @@ def _find_responsable(sentence: str, speaker: str | None, attendees: list[str]) 
     # Solo el propio hablante se asigna: "yo + verbo" o "me encargo/me toca".
     # Pero ignorar si la frase contiene "preparar" explícitamente, ya que suele ser delegación.
     # Además, ignorar si la frase es una delegación general ("que alguien...").
-    if speaker and "preparar" not in sentence.lower() and "que alguien" not in sentence.lower() and (COMMITMENT_RE.search(sentence) or re.search(r"\bme (encargo|toca)\b", lowered)):
+    if speaker and "preparar" not in sentence.lower() and "que alguien" not in sentence.lower() and (COMMITMENT_RE.search(sentence) or re.search(r"\b(me (encargo|toca)|voy a)\b", lowered)):
         return speaker
     return None
 
@@ -227,7 +228,42 @@ def _match_any(sentence: str, patterns: list[str]) -> bool:
     return any(re.search(p, sentence, re.IGNORECASE) for p in patterns)
 
 
-def analyze(text: str, attendees: list[str] | None = None) -> dict:
+DIAS_SEMANA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+MESES = {m: i for i, m in enumerate(
+    ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"], start=1)}
+
+
+def _fecha_absoluta(fecha: str, fecha_reunion: str) -> str:
+    """Convierte una fecha relativa a dd/mm/aaaa, tomando la reunión como referencia.
+
+    Regla: un día de la semana es el de la semana (lunes a domingo) que contiene
+    la reunión, así un lunes 16/11 queda antes que un martes 17/11 de la misma semana.
+    "mañana" es el día siguiente. Lo que no se puede fechar (p. ej. "esta semana") se devuelve tal cual.
+    """
+    if not fecha_reunion:
+        return fecha
+    try:
+        ref = datetime.strptime(str(fecha_reunion), "%Y-%m-%d").date()
+    except ValueError:
+        return fecha
+    prefijo = "antes del " if fecha.lower().startswith("antes del ") else ""
+    resto = fecha.lower()[len(prefijo):]
+    if resto.startswith("el "):
+        resto = resto[3:]
+    if resto == "mañana":
+        dia = ref + timedelta(days=1)
+    elif resto in DIAS_SEMANA:
+        dia = ref - timedelta(days=ref.weekday()) + timedelta(days=DIAS_SEMANA.index(resto))
+    else:
+        match = re.fullmatch(r"(\d{1,2}) de ([a-záéíóúñ]+)", resto)
+        if not match or match.group(2) not in MESES:
+            return fecha
+        dia = date(ref.year, MESES[match.group(2)], int(match.group(1)))
+    return f"{prefijo}{dia:%d/%m/%Y}"
+
+
+def analyze(text: str, attendees: list[str] | None = None, fecha_reunion: str | None = None) -> dict:
     """Devuelve los apuntes de una transcripción.
 
     Lanza ValueError si la transcripción está vacía.
@@ -275,16 +311,9 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
             if _match_any(sentence, [r"\b(Partimos|Lo primero|cerramos)\b"]):
                 continue
 
-            # Manejar delegación + revisión en la misma frase: dividir por coma
             parts = [sentence]
             if "," in sentence:
                 parts = [p.strip() for p in sentence.split(",")]
-            # Para el cierre: si hay ":" y varias cosas, tratarlas como lista
-            elif ":" in sentence:
-                 content = sentence.split(":", 1)[1]
-                 # Reemplazar " y " por coma antes de dividir
-                 content = content.replace(" y ", ", ")
-                 parts = [p.strip() for p in content.split(",")]
 
             for part in parts:
                 if len(part) < 5: continue
@@ -299,6 +328,10 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
                     # Buscar fecha en el contexto si no está en la frase
                     fecha = _find_fecha(part) or _find_fecha(sentence)
                     
+                    # Convertir a formato absoluto si es posible
+                    if fecha:
+                        fecha = _fecha_absoluta(fecha, fecha_reunion)
+                    
                     pendientes.append(
                         {
                             "texto": part,
@@ -309,15 +342,23 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
                     )
 
     # Propagación de fechas para tareas sin fecha basada en contexto de cierre
+    # Solo buscar en frases que empiecen por "Entonces cerramos"
     for p in pendientes:
         if not p.get("fecha"):
-            # Buscar en frases que contengan "cerramos" o similares
+            p_words = set(_content_words(p["texto"]))
             for s, _ in flat:
-                if _match_any(s, [r"\b(cerramos|cerrar|lista|listo|final|concluir)\b"]):
-                    fecha_cierre = _find_fecha(s)
-                    if fecha_cierre:
-                        p["fecha"] = fecha_cierre
-                        break
+                if s.lower().startswith("entonces cerramos"):
+                    # Buscar dentro de la frase de cierre si hay una fecha asociada al mismo tema
+                    # Primero dividimos la frase de cierre por comas
+                    cierre_parts = s.split(",")
+                    for cp in cierre_parts:
+                        cp_words = set(_content_words(cp))
+                        if p_words & cp_words:
+                            fecha_cierre = _find_fecha(cp)
+                            if fecha_cierre:
+                                p["fecha"] = _fecha_absoluta(fecha_cierre, fecha_reunion)
+                                break
+                    if p.get("fecha"): break
 
     return {
         "resumen": _resumen(sentences),

@@ -35,7 +35,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const notes = await analyzeTranscript(formData.transcript, formData.attendees);
+      const notes = await analyzeTranscript(formData.transcript, formData.attendees, formData.date);
       setMeeting({ ...formData, notes });
     } catch (e) {
       setError(e.message);

@@ -16,8 +16,8 @@ const json = (body, method = 'POST') => ({
 });
 
 export const getHealth = () => request('/api/health');
-export const analyzeTranscript = (transcript, attendees = []) =>
-  request('/api/analyze', json({ transcript, attendees }));
+export const analyzeTranscript = (transcript, attendees = [], fechaReunion = null) =>
+  request('/api/analyze', json({ transcript, attendees, fecha_reunion: fechaReunion }));
 
 export const transcribeAudio = (file) => {
   const formData = new FormData();

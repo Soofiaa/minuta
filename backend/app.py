@@ -33,8 +33,9 @@ def create_app():
             return jsonify({"error": "La transcripción está vacía."}), 400
         
         attendees = data.get("attendees")
+        fecha_reunion = data.get("fecha_reunion")
         try:
-            result = analyze(transcript, attendees)
+            result = analyze(transcript, attendees, fecha_reunion=fecha_reunion)
             return jsonify(result)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
