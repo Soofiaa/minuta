@@ -72,7 +72,7 @@ TASK_VERB_START = (
 )
 
 DATE_PATTERNS = [
-    r"\bantes del\s+(?:lunes|martes|miércoles|jueves|viernes|sábado|domingo|\d{1,2} de [a-záéíóúñ]+)\b",
+    r"\bantes del\s+(?:lunes|martes|miércoles|jueves|viernes|sábado|domingo|\d{1,2} de (?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre))\b",
     r"\b(el )?\d{1,2} de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b",
     r"\b(el )?(lunes|martes|miércoles|jueves|viernes|sábado|domingo)\b",
     r"\bmañana\b",
@@ -268,26 +268,23 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
             _match_any(sentence, ACTION_PATTERNS)
             or re.match(TASK_VERB_START, sentence, re.IGNORECASE)
             or (COMMITMENT_RE.search(sentence) and _find_fecha(sentence))
-            or (":" in sentence and any(p in sentence.lower() for p in ["fotos", "precios", "comunicado", "pago"]))
-            or _match_any(sentence, [r"\b(lista|listas|probado|probada)\b"])
         )
         
         # Filtro de ruido: no frases de apertura, contexto o resumen/cierre.
         if is_action:
-            if _match_any(sentence, [r"\b(Partimos|Lo primero|cerramos)\b"]) and ":" not in sentence:
+            if _match_any(sentence, [r"\b(Partimos|Lo primero|cerramos)\b"]):
                 continue
 
             # Manejar delegación + revisión en la misma frase: dividir por coma
             parts = [sentence]
-            if ":" in sentence:
-                 # También dividir por dos puntos para el caso de cierre con lista
-                 # Dividir cuidadosamente: "cerramos: a, b y c" -> "a", "b", "c"
+            if "," in sentence:
+                parts = [p.strip() for p in sentence.split(",")]
+            # Para el cierre: si hay ":" y varias cosas, tratarlas como lista
+            elif ":" in sentence:
                  content = sentence.split(":", 1)[1]
                  # Reemplazar " y " por coma antes de dividir
                  content = content.replace(" y ", ", ")
                  parts = [p.strip() for p in content.split(",")]
-            elif "," in sentence:
-                parts = [p.strip() for p in sentence.split(",")]
 
             for part in parts:
                 if len(part) < 5: continue
@@ -301,15 +298,7 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
 
                     # Buscar fecha en el contexto si no está en la frase
                     fecha = _find_fecha(part) or _find_fecha(sentence)
-                    if not fecha:
-                        # Buscar fecha en las siguientes frases
-                        # Si detectamos una frase de cierre con fecha, la tomamos como fecha límite general
-                        for next_sentence in sentences[sentences.index(sentence)+1:]:
-                            next_fecha = _find_fecha(next_sentence)
-                            if next_fecha and _match_any(next_sentence, [r"\b(cerramos|cerrar|lista|listo|final|concluir)\b"]):
-                                fecha = next_fecha
-                                break
-
+                    
                     pendientes.append(
                         {
                             "texto": part,
@@ -319,16 +308,15 @@ def analyze(text: str, attendees: list[str] | None = None) -> dict:
                         }
                     )
 
-    # Heredar fecha si comparten una palabra de contenido clave y otra frase sí tiene fecha (cierre)
+    # Propagación de fechas para tareas sin fecha basada en contexto de cierre
     for p in pendientes:
         if not p.get("fecha"):
-            p_words = set(_content_words(p["texto"]))
+            # Buscar en frases que contengan "cerramos" o similares
             for s, _ in flat:
-                s_fecha = _find_fecha(s)
-                if s_fecha:
-                    s_words = set(_content_words(s))
-                    if p_words & s_words:
-                        p["fecha"] = s_fecha
+                if _match_any(s, [r"\b(cerramos|cerrar|lista|listo|final|concluir)\b"]):
+                    fecha_cierre = _find_fecha(s)
+                    if fecha_cierre:
+                        p["fecha"] = fecha_cierre
                         break
 
     return {
