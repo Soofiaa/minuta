@@ -114,9 +114,9 @@ function MainApp() {
   const generateNotes = async (recording) => {
     try {
       const audioBuffer = await window.electronAPI.getRecordingFile(recording.videoPath);
-      const blob = new Blob([audioBuffer], { type: 'video/webm' });
+      const file = new File([audioBuffer], 'recording.webm', { type: 'video/webm' });
       
-      const transcriptData = await transcribeAudio(blob);
+      const transcriptData = await transcribeAudio(file);
       const notes = await analyzeTranscript(transcriptData.transcript);
       
       alert(JSON.stringify(notes, null, 2));
