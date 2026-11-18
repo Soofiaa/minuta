@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ApuntesView from './components/ApuntesView';
+import { transcribeAudio, analyzeTranscript } from './lib/api';
 
 function FloatingWindow() {
   const [time, setTime] = useState(0);
@@ -114,24 +115,13 @@ function MainApp() {
     try {
       const audioBuffer = await window.electronAPI.getRecordingFile(recording.videoPath);
       const blob = new Blob([audioBuffer], { type: 'video/webm' });
-      const form = new FormData();
-      form.append('audio', blob, 'recording.webm');
       
-      const res = await fetch('http://localhost:5000/api/transcribe', { method: 'POST', body: form });
-      const transcriptData = await res.json();
-      if (!res.ok) throw new Error(transcriptData.error || 'Error en transcripción');
-
-      const resNotes = await fetch('http://localhost:5000/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: transcriptData.transcript })
-      });
-      const notes = await resNotes.json();
-      if (!resNotes.ok) throw new Error(notes.error || 'Error en análisis');
+      const transcriptData = await transcribeAudio(blob);
+      const notes = await analyzeTranscript(transcriptData.transcript);
       
       alert(JSON.stringify(notes, null, 2));
     } catch (err) {
-      alert(`Error: ${err.message}. Asegúrate de que el backend de Minuta esté corriendo en localhost:5000.`);
+      alert(`Error: ${err.message}. No se pudo conectar con el backend de Render.`);
     }
   };
 
