@@ -179,6 +179,9 @@ function MainApp() {
 }
 
 export default function App({ route }) {
-  if (route === '#/floating') return <FloatingWindow />;
+  const currentRoute = route || window.location.hash;
+  if (currentRoute === '#/floating' || currentRoute === '#floating') {
+    return <FloatingWindow />;
+  }
   return <MainApp />;
 }
