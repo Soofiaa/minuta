@@ -146,9 +146,8 @@ export default function ApuntesView({ recording = null, onClear = null, onViewHi
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = () => {
-    window.print();
-  };
+  // Imprime desde la vista previa: sin ella el CSS de impresión no tiene qué mostrar.
+  const handleExportPDF = () => setShowPrint('print');
 
   const update = (section, value) => setNotes({ ...notes, [section]: value });
   const edit = (section, index, patch) => {
@@ -170,13 +169,13 @@ export default function ApuntesView({ recording = null, onClear = null, onViewHi
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setShowPrint(true)} className={btn}>Vista previa</button>
-            <button onClick={() => window.print()} className={btn}>Exportar PDF</button>
+            <button onClick={() => setShowPrint('print')} className={btn}>Exportar PDF</button>
             <button onClick={() => downloadText(`${stored.title.replace(/\s+/g, '_')}_minuta.md`, generateMarkdown(stored.title, stored.date, sn))} className={btn}>Descargar .md</button>
           </div>
         </div>
 
         {showPrint && (
-          <PrintPreview title={stored.title} date={stored.date} attendees={stored.attendees} notes={sn} onClose={() => setShowPrint(false)} />
+          <PrintPreview title={stored.title} date={stored.date} attendees={stored.attendees} notes={sn} onClose={() => setShowPrint(false)} autoPrint={showPrint === 'print'} />
         )}
 
         {sn.resumen?.length > 0 && (
@@ -263,7 +262,7 @@ export default function ApuntesView({ recording = null, onClear = null, onViewHi
             date={date}
             attendees={attendeesStr.split(',').map(s => s.trim()).filter(Boolean)}
             notes={notes}
-            onClose={() => setShowPrint(false)}
+            onClose={() => setShowPrint(false)} autoPrint={showPrint === 'print'}
           />
         )}
 

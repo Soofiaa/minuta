@@ -4,6 +4,7 @@ import { generateMarkdown } from '../lib/markdown';
 import { formatDate, matchesQuery, inRange, withTimeout, downloadText } from '../lib/utils';
 import PrintPreview from './PrintPreview';
 import LoadingOverlay from './LoadingOverlay';
+import ConfirmDialog from './ConfirmDialog';
 
 const sectionTitle = 'font-semibold text-purple-900 mb-2 text-sm uppercase tracking-wider';
 const btn = 'text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium disabled:opacity-50';
@@ -16,6 +17,7 @@ export default function HistorialView() {
   const [error, setError] = useState(null);
   const [showPrint, setShowPrint] = useState(false);
   const [query, setQuery] = useState('');
+  const [confirm, setConfirm] = useState(null); // { message, label, danger, action }
   const [range, setRange] = useState('todas');
   const [editing, setEditing] = useState(null); // copia de notes mientras se edita
   const [busy, setBusy] = useState(null); // paso del overlay o null
@@ -71,6 +73,12 @@ export default function HistorialView() {
     saveNotes({ ...selected.notes, pendientes });
   };
 
+  const askRegenerate = () => setConfirm({
+    message: 'Re-generar reemplaza los apuntes actuales, incluidas tus ediciones. ¿Continuar?',
+    label: 'Re-generar',
+    action: regenerate,
+  });
+
   const regenerate = async () => {
     setError(null);
     setBusy('Generando apuntes...');
@@ -84,8 +92,14 @@ export default function HistorialView() {
     }
   };
 
-  const remove = async (id) => {
-    if (!window.confirm('¿Eliminar esta minuta? Esta acción no se puede deshacer.')) return;
+  const remove = (id) => setConfirm({
+    message: '¿Eliminar esta minuta? Esta acción no se puede deshacer.',
+    label: 'Eliminar',
+    danger: true,
+    action: () => doRemove(id),
+  });
+
+  const doRemove = async (id) => {
     setError(null);
     try {
       await deleteMeeting(id);
@@ -125,12 +139,23 @@ export default function HistorialView() {
 
   const errorBox = error && <p className="mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>;
 
+  const confirmBox = confirm && (
+    <ConfirmDialog
+      message={confirm.message}
+      confirmLabel={confirm.label}
+      danger={confirm.danger}
+      onCancel={() => setConfirm(null)}
+      onConfirm={() => { const { action } = confirm; setConfirm(null); action(); }}
+    />
+  );
+
   if (selected) {
     const notes = selected.notes || {};
     const view = editing || notes;
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm border border-purple-100">
         <LoadingOverlay step={busy} />
+        {confirmBox}
         <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
           <div>
             <button onClick={() => setSelected(null)} className="text-sm text-purple-600 hover:underline mb-2">
@@ -152,9 +177,9 @@ export default function HistorialView() {
               <>
                 <button onClick={() => setEditing(structuredClone(notes))} className={btn}>Editar</button>
                 <button onClick={() => setShowPrint(true)} className={btn}>Vista previa</button>
-                <button onClick={() => window.print()} className={btn}>Exportar PDF</button>
+                <button onClick={() => setShowPrint('print')} className={btn}>Exportar PDF</button>
                 <button onClick={exportMarkdown} className={btn}>Descargar .md</button>
-                <button onClick={regenerate} disabled={!selected.transcript} className={btn}>Re-generar apuntes</button>
+                <button onClick={askRegenerate} disabled={!selected.transcript} className={btn}>Re-generar apuntes</button>
                 <button onClick={() => remove(selected.id)} className="text-sm text-red-600 px-3 py-1.5 rounded-md hover:bg-red-50 font-medium">Eliminar</button>
               </>
             )}
@@ -167,7 +192,7 @@ export default function HistorialView() {
             date={selected.date}
             attendees={selected.attendees}
             notes={notes}
-            onClose={() => setShowPrint(false)}
+            onClose={() => setShowPrint(false)} autoPrint={showPrint === 'print'}
           />
         )}
 
@@ -281,6 +306,7 @@ export default function HistorialView() {
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-purple-100">
       <LoadingOverlay step={busy} />
+      {confirmBox}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-purple-900">Minutas guardadas</h2>
         {meetings?.length > 0 && <button onClick={exportAll} className={btn}>Exportar todas</button>}

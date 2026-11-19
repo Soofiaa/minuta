@@ -1,20 +1,19 @@
 @import "tailwindcss";
 
+/* Al imprimir solo queda la vista previa (montada como hijo directo de <body>).
+   display: none, no visibility: hidden, para que lo oculto no ocupe páginas. */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  .print-preview-modal, .print-preview-modal * {
-    visibility: visible;
+  body > *:not(.print-preview-modal) {
+    display: none !important;
   }
   .print-preview-modal {
-    position: absolute;
-    left: 0;
-    top: 0;
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
     width: 100%;
-    height: auto;
     margin: 0;
-    padding: 0;
+    padding: 0 !important;
     background: white !important;
   }
 }

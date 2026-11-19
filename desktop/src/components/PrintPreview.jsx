@@ -1,8 +1,32 @@
-export default function PrintPreview({ title, date, attendees, notes, onClose }) {
+import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+
+// Se monta como hijo directo de <body> para que el CSS de impresión pueda ocultar
+// (display: none) el resto de la app: así el PDF lleva solo los apuntes y no hereda
+// el alto de la vista de abajo (que antes agregaba páginas en blanco).
+// autoPrint: abre el diálogo de impresión al montar y cierra la vista al terminar
+// (lo usa "Exportar PDF").
+export default function PrintPreview({ title, date, attendees, notes, onClose, autoPrint = false }) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date || '');
   const dateLabel = m ? `${m[3]}/${m[2]}/${m[1]}` : date || 'No especificada';
 
-  return (
+  // onClose llega como función nueva en cada render; se guarda en un ref para que el
+  // efecto corra una sola vez y no vuelva a abrir el diálogo.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!autoPrint) return undefined;
+    const close = () => onCloseRef.current();
+    window.addEventListener('afterprint', close, { once: true });
+    const id = requestAnimationFrame(() => window.print());
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener('afterprint', close);
+    };
+  }, [autoPrint]);
+
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-white p-8 overflow-auto print-preview-modal">
       <div className="flex justify-end gap-3 mb-6 print:hidden">
         <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-medium hover:bg-gray-300">
@@ -75,6 +99,7 @@ export default function PrintPreview({ title, date, attendees, notes, onClose })
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
