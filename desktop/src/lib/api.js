@@ -19,10 +19,20 @@ const json = (body, method = 'POST') => ({
 export const analyzeTranscript = (transcript, attendees = [], fechaReunion = null) =>
   request('/api/analyze', json({ transcript, attendees, fecha_reunion: fechaReunion }));
 
+// Clave de Groq guardada en la app (localStorage). Solo se envía si ya pasó la validación.
+const KEY_STORAGE = 'minuta.groqKey';
+export const getGroqKey = () => localStorage.getItem(KEY_STORAGE) || '';
+export const saveGroqKey = (key) => localStorage.setItem(KEY_STORAGE, key);
+export const clearGroqKey = () => localStorage.removeItem(KEY_STORAGE);
+
+export const validateGroqKey = (key) => request('/api/groq/validate', json({ key }));
+
 export const transcribeAudio = (file) => {
   const formData = new FormData();
   formData.append('audio', file);
-  return request('/api/transcribe', { method: 'POST', body: formData });
+  const key = getGroqKey();
+  const headers = key ? { 'X-Groq-Api-Key': key } : {};
+  return request('/api/transcribe', { method: 'POST', body: formData, headers });
 };
 
 export const createMeeting = (meeting) => request('/api/meetings', json(meeting));

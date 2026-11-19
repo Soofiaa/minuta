@@ -24,6 +24,7 @@ import os
 import requests
 
 GROQ_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models"
 OPENAI_URL = "https://api.openai.com/v1/audio/transcriptions"
 
 SUPPORTED_EXTENSIONS = {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm", ".ogg", ".flac"}
@@ -97,7 +98,7 @@ def _transcribe_api(url: str, api_key: str, model: str, audio_bytes: bytes, file
     except requests.RequestException as exc:
         raise TranscriptionError(f"No se pudo contactar al servicio de transcripción: {exc}") from exc
     if response.status_code == 401:
-        raise TranscriptionError("La clave de API no es válida. Revisa la clave en backend/.env.")
+        raise TranscriptionError("Clave de IA inválida, revisa tu clave en Configuración.")
     if response.status_code == 413:
         raise TranscriptionError("El archivo es demasiado grande para el servicio de transcripción.")
     if response.status_code == 429:
@@ -134,12 +135,32 @@ def _transcribe_local(audio_bytes: bytes, filename: str) -> str:
     return text
 
 
-def transcribe(audio_bytes: bytes, filename: str, provider: str | None = None) -> str:
-    """Transcribe un audio y devuelve el texto en español."""
+def validate_groq_key(api_key: str) -> bool:
+    """Comprueba la clave con un listado de modelos (gratis). Nunca registra la clave."""
+    try:
+        response = requests.get(
+            GROQ_MODELS_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        raise TranscriptionError("No se pudo contactar a Groq para validar la clave.") from exc
+    if response.status_code == 401:
+        return False
+    if not response.ok:
+        raise TranscriptionError(f"Groq devolvió un error al validar la clave ({response.status_code}).")
+    return True
+
+
+def transcribe(audio_bytes: bytes, filename: str, provider: str | None = None, groq_key: str | None = None) -> str:
+    """Transcribe un audio y devuelve el texto en español.
+
+    groq_key: clave propia de la usuaria (header X-Groq-Api-Key). Si falta, se usa GROQ_API_KEY.
+    """
     provider = (provider or get_provider()).lower()
     if provider == "groq":
         _validate(filename, audio_bytes, MAX_BYTES_GROQ)
-        api_key = os.environ.get("GROQ_API_KEY")
+        api_key = groq_key or os.environ.get("GROQ_API_KEY")
         if not api_key:
             raise TranscriptionError(
                 "Falta GROQ_API_KEY. Créala gratis en console.groq.com/keys y ponla en backend/.env. "

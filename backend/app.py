@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from db import init_db, create_meeting, list_meetings, get_meeting, update_meeting, delete_meeting
 from notes_engine import analyze
-from transcription import transcribe, provider_status, TranscriptionError
+from transcription import transcribe, provider_status, validate_groq_key, TranscriptionError
 
 def create_app():
     # Load environment variables
@@ -53,12 +53,22 @@ def create_app():
             audio_bytes = file.read()
             filename = file.filename
             provider = os.environ.get("TRANSCRIPTION_PROVIDER", "groq").lower()
-            text = transcribe(audio_bytes, filename)
+            text = transcribe(audio_bytes, filename, groq_key=request.headers.get("X-Groq-Api-Key"))
             return jsonify({"transcript": text, "provider": provider})
         except TranscriptionError as exc:
             return jsonify({"error": str(exc)}), 400
         except Exception as exc:
             return jsonify({"error": str(exc)}), 400
+
+    @app.route("/api/groq/validate", methods=["POST"])
+    def validate_groq_route():
+        key = (request.get_json(silent=True) or {}).get("key", "").strip()
+        if not key:
+            return jsonify({"valid": False, "error": "Falta la clave."}), 400
+        try:
+            return jsonify({"valid": validate_groq_key(key)})
+        except TranscriptionError as exc:
+            return jsonify({"valid": False, "error": str(exc)}), 502
 
     @app.route("/api/transcription/status", methods=["GET"])
     def transcription_status():
