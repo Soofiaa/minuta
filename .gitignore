@@ -5,3 +5,4 @@ backend/.env
 backend/*.db
 __pycache__/
 .DS_Store
+desktop-tauri/

@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import ApuntesView from './components/ApuntesView';
+import HistorialView from './components/HistorialView';
+import { transcribeAudio, analyzeTranscript } from './lib/api';
 
 function FloatingWindow() {
   const [time, setTime] = useState(0);
@@ -21,12 +24,12 @@ function FloatingWindow() {
   const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
   return (
-    <div className={`p-3 rounded-lg flex items-center justify-between font-bold shadow-xl border ${status === 'recording' ? 'bg-red-600 text-white border-red-800' : 'bg-amber-500 text-white border-amber-700'}`}>
+    <div className={`p-3 rounded-lg flex items-center justify-between font-bold shadow-xl border [-webkit-app-region:drag] ${status === 'recording' ? 'bg-red-600 text-white border-red-800' : 'bg-amber-500 text-white border-amber-700'}`}>
       <div className="flex items-center">
         <span className="animate-pulse mr-2">{status === 'recording' ? '●' : '⏸'}</span>
         {status === 'recording' ? 'GRABANDO' : 'PAUSA'} {timeStr}
       </div>
-      <div className="flex gap-1">
+      <div className="flex gap-1 [-webkit-app-region:no-drag]">
         <button onClick={() => window.electronAPI.sendControlAction(status === 'recording' ? 'pause' : 'resume')} className="bg-black/20 hover:bg-black/40 px-2 py-1 rounded text-xs">
           {status === 'recording' ? 'Pausar' : 'Reanudar'}
         </button>
@@ -44,8 +47,11 @@ function MainApp() {
   const [consented, setConsented] = useState(false);
   const [recordings, setRecordings] = useState([]);
   const [status, setStatus] = useState('idle'); // 'idle', 'recording', 'paused'
+  const [mode, setMode] = useState('grabar'); // 'grabar' | 'apuntes' | 'historial'
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
+
+  const [activeRecording, setActiveRecording] = useState(null); // Para mostrar en el modo apuntes
 
   useEffect(() => {
     window.electronAPI.getSources().then(setSources);
@@ -109,34 +115,25 @@ function MainApp() {
   };
 
   const generateNotes = async (recording) => {
-    try {
-      const audioBuffer = await window.electronAPI.getRecordingFile(recording.videoPath);
-      const blob = new Blob([audioBuffer], { type: 'video/webm' });
-      const form = new FormData();
-      form.append('audio', blob, 'recording.webm');
-      
-      const res = await fetch('http://localhost:5000/api/transcribe', { method: 'POST', body: form });
-      const transcriptData = await res.json();
-      if (!res.ok) throw new Error(transcriptData.error || 'Error en transcripción');
-
-      const resNotes = await fetch('http://localhost:5000/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: transcriptData.transcript })
-      });
-      const notes = await resNotes.json();
-      if (!resNotes.ok) throw new Error(notes.error || 'Error en análisis');
-      
-      alert(JSON.stringify(notes, null, 2));
-    } catch (err) {
-      alert(`Error: ${err.message}. Asegúrate de que el backend de Minuta esté corriendo en localhost:5000.`);
-    }
+    setActiveRecording(recording);
+    setMode('apuntes'); // Cambiar al modo apuntes
   };
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-purple-900 mb-6">Minuta Desktop</h1>
-      
+      <h1 className="text-3xl font-bold text-purple-900 mb-4">Minuta Desktop</h1>
+
+      <nav className="flex gap-1 border-b border-purple-200 mb-6" role="tablist">
+        {[['grabar', 'Grabar'], ['apuntes', 'Apuntes'], ['historial', 'Historial']].map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
+            className={`px-5 py-2 font-medium -mb-px border-b-2 ${mode === id ? 'border-purple-600 text-purple-900' : 'border-transparent text-gray-500 hover:text-purple-700'}`}>
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Grabar se oculta, no se desmonta: así la grabación en curso sigue viva al cambiar de pestaña. */}
+      <div hidden={mode !== 'grabar'}>
       <div className="bg-white p-6 rounded-xl shadow-md border border-purple-100 mb-6">
         <h2 className="text-xl font-semibold text-purple-800 mb-4">Nueva Grabación</h2>
         <select onChange={(e) => setSelectedSource(sources.find(s => s.id === e.target.value))} className="w-full p-2 border rounded mb-4">
@@ -174,11 +171,22 @@ function MainApp() {
           </div>
         ))}
       </div>
+      </div>
+
+      <div hidden={mode !== 'apuntes'}>
+        <ApuntesView recording={activeRecording} onClear={() => setActiveRecording(null)} onViewHistorial={() => setMode('historial')} />
+      </div>
+
+      {/* Historial se monta al entrar en la pestaña para cargar las minutas solo entonces. */}
+      {mode === 'historial' && <HistorialView />}
     </div>
   );
 }
 
 export default function App({ route }) {
-  if (route === '#/floating') return <FloatingWindow />;
+  const currentRoute = route || window.location.hash;
+  if (currentRoute === '#/floating' || currentRoute === '#floating') {
+    return <FloatingWindow />;
+  }
   return <MainApp />;
 }

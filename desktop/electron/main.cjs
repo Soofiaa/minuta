@@ -42,8 +42,8 @@ function createFloatingWindow() {
   floatingWindow = new BrowserWindow({
     width: 280,
     height: 70,
-    x: screenWidth - 300,
-    y: 20,
+    x: Math.round((screenWidth - 280) / 2),
+    y: 10,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -70,11 +70,14 @@ function createFloatingWindow() {
 
 ipcMain.handle('get-sources', async () => {
   const sources = await desktopCapturer.getSources({ types: ['window', 'screen'], fetchWindowIcons: false });
-  return sources.map(src => ({
-    id: src.id,
-    name: src.name,
-    thumbnail: src.thumbnail ? src.thumbnail.toDataURL() : null
-  }));
+  const mainId = mainWindow ? mainWindow.getMediaSourceId() : null;
+  return sources
+    .filter(src => src.name !== 'Minuta Desktop' && src.id !== mainId)
+    .map(src => ({
+      id: src.id,
+      name: src.name,
+      thumbnail: src.thumbnail ? src.thumbnail.toDataURL() : null
+    }));
 });
 
 ipcMain.handle('save-recording', async (event, { arrayBuffer, metadata }) => {
