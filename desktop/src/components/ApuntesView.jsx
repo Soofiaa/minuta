@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { analyzeTranscript, transcribeAudio, createMeeting } from '../lib/api';
 import { generateMarkdown } from '../lib/markdown';
+import PrintPreview from './PrintPreview';
 
 const field = 'w-full rounded-md border border-purple-200 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500';
 const sectionTitle = 'font-semibold text-purple-900 mb-2 text-sm uppercase tracking-wider';
@@ -18,6 +19,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
   const [statusText, setStatusText] = useState('');
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
 
   // Si llega una grabación, procesarla automáticamente
   useEffect(() => {
@@ -159,6 +161,9 @@ export default function ApuntesView({ recording = null, onClear = null }) {
             <button onClick={handleExportMarkdown} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
               Descargar .md
             </button>
+            <button onClick={() => setShowPrint(true)} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
+              Vista previa
+            </button>
             <button onClick={handleExportPDF} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
               Exportar PDF
             </button>
@@ -167,6 +172,16 @@ export default function ApuntesView({ recording = null, onClear = null }) {
             </button>
           </div>
         </div>
+
+        {showPrint && (
+          <PrintPreview
+            title={title}
+            date={date}
+            attendees={attendeesStr.split(',').map(s => s.trim()).filter(Boolean)}
+            notes={notes}
+            onClose={() => setShowPrint(false)}
+          />
+        )}
 
         {error && <p className="mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 

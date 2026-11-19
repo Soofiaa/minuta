@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getMeetings, getMeeting } from '../lib/api';
 import { generateMarkdown } from '../lib/markdown';
+import PrintPreview from './PrintPreview';
 
 const sectionTitle = 'font-semibold text-purple-900 mb-2 text-sm uppercase tracking-wider';
 
@@ -15,6 +16,7 @@ export default function HistorialView() {
   const [meetings, setMeetings] = useState(null);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState(null);
+  const [showPrint, setShowPrint] = useState(false);
 
   useEffect(() => {
     getMeetings()
@@ -60,6 +62,9 @@ export default function HistorialView() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowPrint(true)} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
+              Vista previa
+            </button>
             <button onClick={() => window.print()} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
               Exportar PDF
             </button>
@@ -68,6 +73,16 @@ export default function HistorialView() {
             </button>
           </div>
         </div>
+
+        {showPrint && (
+          <PrintPreview
+            title={selected.title}
+            date={selected.date}
+            attendees={selected.attendees}
+            notes={notes}
+            onClose={() => setShowPrint(false)}
+          />
+        )}
 
         {errorBox}
 
