@@ -238,7 +238,7 @@ export default function ApuntesView({ recording = null, onClear = null, onViewHi
               ← Volver al formulario
             </button>
             <h2 className="text-2xl font-bold text-purple-900">{title}</h2>
-            <p className="text-sm text-gray-500">Fecha: {date || 'No especificada'}</p>
+            <p className="text-sm text-gray-500">Fecha: {formatDate(date)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={handleExportMarkdown} disabled={busy} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium disabled:opacity-50">
