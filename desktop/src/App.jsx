@@ -174,7 +174,7 @@ function MainApp() {
       </div>
 
       <div hidden={mode !== 'apuntes'}>
-        <ApuntesView recording={activeRecording} onClear={() => setActiveRecording(null)} />
+        <ApuntesView recording={activeRecording} onClear={() => setActiveRecording(null)} onViewHistorial={() => setMode('historial')} />
       </div>
 
       {/* Historial se monta al entrar en la pestaña para cargar las minutas solo entonces. */}

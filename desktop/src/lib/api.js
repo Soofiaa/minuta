@@ -30,3 +30,8 @@ export const createMeeting = (meeting) => request('/api/meetings', json(meeting)
 export const getMeetings = () => request('/api/meetings');
 
 export const getMeeting = (id) => request(`/api/meetings/${id}`);
+
+export const updateMeeting = (id, fields) => request(`/api/meetings/${id}`, json(fields, 'PUT'));
+
+// DELETE responde 204 sin cuerpo; request() ya tolera un cuerpo vacío.
+export const deleteMeeting = (id) => request(`/api/meetings/${id}`, { method: 'DELETE' });

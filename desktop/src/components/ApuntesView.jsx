@@ -1,24 +1,18 @@
 import { useState, useEffect } from 'react';
 import { analyzeTranscript, transcribeAudio, createMeeting } from '../lib/api';
 import { generateMarkdown } from '../lib/markdown';
+import { formatDate, withTimeout, downloadText } from '../lib/utils';
 import PrintPreview from './PrintPreview';
+import LoadingOverlay from './LoadingOverlay';
 
 const field = 'w-full rounded-md border border-purple-200 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500';
 const sectionTitle = 'font-semibold text-purple-900 mb-2 text-sm uppercase tracking-wider';
 const removeBtn = 'text-red-500 hover:text-red-700 px-2 py-1 text-lg font-bold';
-
-// Rechaza si la promesa no resuelve en 120 s; limpia el temporizador al terminar.
-const withTimeout = (promise, what) => {
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`Timeout en ${what}`)), 120000);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-};
+const btn = 'text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium';
 
 // Pantalla de apuntes: pegar transcripción o subir audio, editar y guardar.
 // Misma lógica que frontend/src/App.jsx + TranscriptForm + NotesView.
-export default function ApuntesView({ recording = null, onClear = null }) {
+export default function ApuntesView({ recording = null, onClear = null, onViewHistorial = null }) {
   const [title, setTitle] = useState(recording?.title || '');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendeesStr, setAttendeesStr] = useState('');
@@ -29,6 +23,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [stored, setStored] = useState(null); // minuta recién guardada, se muestra en solo lectura
 
   // Si llega una grabación, procesarla automáticamente
   useEffect(() => {
@@ -114,6 +109,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
     setBusy(true);
     setError(null);
     setSaved(false);
+    setStored(null);
     setOverlayStep('Generando apuntes...');
     try {
       const result = await withTimeout(analyzeTranscript(transcript, attendees(), date), 'análisis');
@@ -130,8 +126,9 @@ export default function ApuntesView({ recording = null, onClear = null }) {
     setBusy(true);
     setError(null);
     try {
-      await createMeeting({ title: title.trim(), date, attendees: attendees(), transcript, notes });
+      const meeting = await createMeeting({ title: title.trim(), date, attendees: attendees(), transcript, notes });
       setSaved(true);
+      setStored(meeting);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -160,6 +157,78 @@ export default function ApuntesView({ recording = null, onClear = null }) {
     update(section, list);
   };
   const remove = (section, index) => update(section, notes[section].filter((_, i) => i !== index));
+
+  if (stored) {
+    const sn = stored.notes || {};
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-purple-100">
+        <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-purple-900">{stored.title}</h2>
+            <p className="text-sm text-gray-500">Fecha: {formatDate(stored.date)}</p>
+            {stored.attendees?.length > 0 && <p className="text-sm text-gray-500">Participantes: {stored.attendees.join(', ')}</p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowPrint(true)} className={btn}>Vista previa</button>
+            <button onClick={() => window.print()} className={btn}>Exportar PDF</button>
+            <button onClick={() => downloadText(`${stored.title.replace(/\s+/g, '_')}_minuta.md`, generateMarkdown(stored.title, stored.date, sn))} className={btn}>Descargar .md</button>
+          </div>
+        </div>
+
+        {showPrint && (
+          <PrintPreview title={stored.title} date={stored.date} attendees={stored.attendees} notes={sn} onClose={() => setShowPrint(false)} />
+        )}
+
+        {sn.resumen?.length > 0 && (
+          <div className="mb-6">
+            <h3 className={sectionTitle}>Resumen</h3>
+            <ul className="list-disc pl-5 text-sm">{sn.resumen.map((r, i) => <li key={i}>{r}</li>)}</ul>
+          </div>
+        )}
+        {sn.temas?.length > 0 && (
+          <div className="mb-6">
+            <h3 className={sectionTitle}>Temas tratados</h3>
+            <ul className="list-disc pl-5 text-sm">
+              {sn.temas.map((t, i) => <li key={i}>{t.tema} <span className="text-gray-500">({t.menciones} menciones)</span></li>)}
+            </ul>
+          </div>
+        )}
+        {sn.decisiones?.length > 0 && (
+          <div className="mb-6">
+            <h3 className={sectionTitle}>Decisiones</h3>
+            <ul className="list-disc pl-5 text-sm">
+              {sn.decisiones.map((d, i) => <li key={i}>{d.texto} {d.hablante && <span className="text-gray-500">— {d.hablante}</span>}</li>)}
+            </ul>
+          </div>
+        )}
+        {sn.pendientes?.length > 0 && (
+          <div className="mb-6">
+            <h3 className={sectionTitle}>Pendientes</h3>
+            <ul className="text-sm space-y-1">
+              {sn.pendientes.map((p, i) => (
+                <li key={i} className={p.hecho ? 'line-through text-gray-400' : ''}>
+                  {p.hecho ? '☑' : '☐'} {p.texto}
+                  {p.responsable && <span className="text-gray-500"> — Responsable: {p.responsable}</span>}
+                  {p.fecha && <span className="text-gray-500"> — Fecha: {p.fecha}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {sn.preguntas?.length > 0 && (
+          <div className="mb-4">
+            <h3 className={sectionTitle}>Preguntas abiertas</h3>
+            <ul className="list-disc pl-5 text-sm">{sn.preguntas.map((q, i) => <li key={i}>{q}</li>)}</ul>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button onClick={() => { setStored(null); setShowPrint(false); }} className={btn}>Volver a Apuntes</button>
+          <button onClick={() => onViewHistorial?.()} className="text-sm bg-purple-600 text-white px-4 py-1.5 rounded-md hover:bg-purple-700 font-medium">Ver en Historial</button>
+        </div>
+      </div>
+    );
+  }
 
   if (notes) {
     return (
@@ -269,15 +338,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
 
   return (
     <form onSubmit={handleGenerate} className="relative rounded-lg border border-purple-100 bg-white p-6 shadow-sm">
-      {overlayStep && (
-        <div role="status" aria-live="polite" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-10 py-8 shadow-xl">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
-            <p className="font-semibold text-purple-900">Generando apuntes</p>
-            <p className="text-sm text-gray-500">{overlayStep}</p>
-          </div>
-        </div>
-      )}
+      <LoadingOverlay step={overlayStep} />
       <h2 className="mb-4 text-xl font-semibold text-purple-900">Nueva minuta</h2>
 
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
