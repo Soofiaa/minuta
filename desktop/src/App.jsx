@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ApuntesView from './components/ApuntesView';
+import HistorialView from './components/HistorialView';
 import { transcribeAudio, analyzeTranscript } from './lib/api';
 
 function FloatingWindow() {
@@ -46,7 +47,7 @@ function MainApp() {
   const [consented, setConsented] = useState(false);
   const [recordings, setRecordings] = useState([]);
   const [status, setStatus] = useState('idle'); // 'idle', 'recording', 'paused'
-  const [mode, setMode] = useState('grabar'); // 'grabar' | 'apuntes'
+  const [mode, setMode] = useState('grabar'); // 'grabar' | 'apuntes' | 'historial'
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
 
@@ -123,7 +124,7 @@ function MainApp() {
       <h1 className="text-3xl font-bold text-purple-900 mb-4">Minuta Desktop</h1>
 
       <nav className="flex gap-1 border-b border-purple-200 mb-6" role="tablist">
-        {[['grabar', 'Grabar'], ['apuntes', 'Apuntes']].map(([id, label]) => (
+        {[['grabar', 'Grabar'], ['apuntes', 'Apuntes'], ['historial', 'Historial']].map(([id, label]) => (
           <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
             className={`px-5 py-2 font-medium -mb-px border-b-2 ${mode === id ? 'border-purple-600 text-purple-900' : 'border-transparent text-gray-500 hover:text-purple-700'}`}>
             {label}
@@ -175,6 +176,9 @@ function MainApp() {
       <div hidden={mode !== 'apuntes'}>
         <ApuntesView recording={activeRecording} onClear={() => setActiveRecording(null)} />
       </div>
+
+      {/* Historial se monta al entrar en la pestaña para cargar las minutas solo entonces. */}
+      {mode === 'historial' && <HistorialView />}
     </div>
   );
 }

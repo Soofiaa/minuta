@@ -26,3 +26,7 @@ export const transcribeAudio = (file) => {
 };
 
 export const createMeeting = (meeting) => request('/api/meetings', json(meeting));
+
+export const getMeetings = () => request('/api/meetings');
+
+export const getMeeting = (id) => request(`/api/meetings/${id}`);
