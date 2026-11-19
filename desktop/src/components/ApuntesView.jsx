@@ -7,6 +7,15 @@ const field = 'w-full rounded-md border border-purple-200 p-2 focus:outline-none
 const sectionTitle = 'font-semibold text-purple-900 mb-2 text-sm uppercase tracking-wider';
 const removeBtn = 'text-red-500 hover:text-red-700 px-2 py-1 text-lg font-bold';
 
+// Rechaza si la promesa no resuelve en 120 s; limpia el temporizador al terminar.
+const withTimeout = (promise, what) => {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timeout en ${what}`)), 120000);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
+
 // Pantalla de apuntes: pegar transcripción o subir audio, editar y guardar.
 // Misma lógica que frontend/src/App.jsx + TranscriptForm + NotesView.
 export default function ApuntesView({ recording = null, onClear = null }) {
@@ -16,7 +25,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
   const [transcript, setTranscript] = useState('');
   const [notes, setNotes] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [statusText, setStatusText] = useState('');
+  const [overlayStep, setOverlayStep] = useState(null); // paso mostrado en el overlay; null = oculto
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
@@ -30,7 +39,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
       const processRecording = async () => {
         setBusy(true);
         setError(null);
-        setStatusText('Transcribiendo audio...');
+        setOverlayStep('Transcribiendo audio...');
         const startTime = Date.now();
         
         try {
@@ -47,7 +56,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
           
           setTranscript(transcriptData.transcript);
           
-          setStatusText('Generando apuntes...');
+          setOverlayStep('Generando apuntes...');
           const analyzeStartTime = Date.now();
           const analyzePromise = analyzeTranscript(transcriptData.transcript, [], date);
           
@@ -62,7 +71,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
           setError(err.message);
         } finally {
           setBusy(false);
-          setStatusText('');
+          setOverlayStep(null);
         }
       };
       processRecording();
@@ -75,13 +84,15 @@ export default function ApuntesView({ recording = null, onClear = null }) {
     if (!file) return;
     setBusy(true);
     setError(null);
+    setOverlayStep('Transcribiendo audio...');
     try {
-      const res = await transcribeAudio(file);
+      const res = await withTimeout(transcribeAudio(file), 'transcripción');
       setTranscript(res.transcript);
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
+      setOverlayStep(null);
     }
   };
 
@@ -101,13 +112,15 @@ export default function ApuntesView({ recording = null, onClear = null }) {
     setBusy(true);
     setError(null);
     setSaved(false);
+    setOverlayStep('Generando apuntes...');
     try {
-      const result = await analyzeTranscript(transcript, attendees(), date);
+      const result = await withTimeout(analyzeTranscript(transcript, attendees(), date), 'análisis');
       setNotes(result);
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
+      setOverlayStep(null);
     }
   };
 
@@ -158,13 +171,13 @@ export default function ApuntesView({ recording = null, onClear = null }) {
             <p className="text-sm text-gray-500">Fecha: {date || 'No especificada'}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={handleExportMarkdown} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
+            <button onClick={handleExportMarkdown} disabled={busy} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium disabled:opacity-50">
               Descargar .md
             </button>
-            <button onClick={() => setShowPrint(true)} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
+            <button onClick={() => setShowPrint(true)} disabled={busy} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium disabled:opacity-50">
               Vista previa
             </button>
-            <button onClick={handleExportPDF} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium">
+            <button onClick={handleExportPDF} disabled={busy} className="text-sm bg-purple-100 text-purple-800 px-3 py-1.5 rounded-md hover:bg-purple-200 font-medium disabled:opacity-50">
               Exportar PDF
             </button>
             <button onClick={handleSave} disabled={busy || saved} className="text-sm bg-purple-600 text-white px-4 py-1.5 rounded-md hover:bg-purple-700 font-medium disabled:opacity-50">
@@ -253,7 +266,16 @@ export default function ApuntesView({ recording = null, onClear = null }) {
   }
 
   return (
-    <form onSubmit={handleGenerate} className="rounded-lg border border-purple-100 bg-white p-6 shadow-sm">
+    <form onSubmit={handleGenerate} className="relative rounded-lg border border-purple-100 bg-white p-6 shadow-sm">
+      {overlayStep && (
+        <div role="status" aria-live="polite" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-10 py-8 shadow-xl">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
+            <p className="font-semibold text-purple-900">Generando apuntes</p>
+            <p className="text-sm text-gray-500">{overlayStep}</p>
+          </div>
+        </div>
+      )}
       <h2 className="mb-4 text-xl font-semibold text-purple-900">Nueva minuta</h2>
 
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -297,7 +319,7 @@ export default function ApuntesView({ recording = null, onClear = null }) {
       <div className="flex justify-end">
         <button type="submit" disabled={busy}
           className="rounded-md bg-purple-600 px-6 py-2 font-medium text-white shadow-sm hover:bg-purple-700 disabled:opacity-50">
-          {busy ? (statusText || 'Generando…') : 'Generar apuntes'}
+          {busy ? (overlayStep || 'Generando…') : 'Generar apuntes'}
         </button>
       </div>
     </form>
