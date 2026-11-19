@@ -105,6 +105,8 @@ export default function ApuntesView({ recording = null, onClear = null }) {
     reader.readAsText(file);
   };
 
+  const attendees = () => attendeesStr.split(',').map(s => s.trim()).filter(Boolean);
+
   const handleGenerate = async (e) => {
     e.preventDefault();
     if (!title.trim()) return setError('Indica un título para la reunión.');
