@@ -145,7 +145,21 @@ ipcMain.on('control-action', (event, action) => {
   }
 });
 
+// Una sola instancia: si se abre la app de nuevo, se enfoca la ventana existente
+// en vez de crear otra (dos instancias compiten por las grabaciones y el historial).
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
+
 app.whenReady().then(() => {
+  if (!app.hasSingleInstanceLock()) return;
   createMainWindow();
 
   app.on('activate', () => {
